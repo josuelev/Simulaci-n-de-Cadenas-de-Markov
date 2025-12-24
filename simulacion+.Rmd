@@ -1,0 +1,137 @@
+---
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Procedimiento (breve descripción)
+
+Se simularon trayectorias de una cadena de Markov de tiempo discreto con espacio de estados {0,1,2,3} y matriz de transición
+\begin{center}
+P = $\begin{pmatrix}
+0 & 1 & 0 & 0 \\
+1/3 & 0 & 2/3 & 0 \\
+0 & 2/3 & 0 & 1/3 \\
+0 & 0 & 1 & 0
+\end{pmatrix}$
+\end{center}
+
+El procedimiento aplicado fue:
+
+1. Definir la matriz de transición `P` y la función de simulación `simula_cadenas()` que, partiendo del estado inicial (0), realiza `n_steps` transiciones muestreando la siguiente posición según la fila de probabilidades del estado actual.
+2. Fijar la semilla (`set.seed`) para reproducibilidad y ejecutar 1000 simulaciones independientes de 10000 pasos, registrando el estado final de cada simulación.
+3. Repetir el experimento con 10001 pasos.
+4. Construir tablas de frecuencias y gráficas de barras de los estados finales para comparar ambos casos.
+```{r, echo=FALSE}
+set.seed(12345)
+# Matriz P (por filas)
+P <- matrix(c(
+  0,   1,   0,   0,
+  1/3, 0, 2/3,  0,
+  0, 2/3,  0, 1/3,
+  0,   0,   1,   0
+), nrow = 4, byrow = TRUE)
+```
+
+
+# 2. Resultados y gráficas
+## Código usado
+El código genérico para realizar las simulaciones en este problema:
+```{r}
+simula_cadenas <- function(n_sims, n_steps, P, init) {
+  estados_finales <- integer(n_sims)
+  for (sim in seq_len(n_sims)) {
+    x <- init
+    for (t in seq_len(n_steps)) {
+      x <- sample(0:3, size = 1, prob = P[x + 1, ])
+    }
+    estados_finales[sim] <- x
+  }
+  return(table(factor(estados_finales, levels = 0:3)))
+}
+```
+
+## Distribución estacionaria
+Notemos inicialmente que la distribución estacionaria de la matriz es:
+\begin{center}
+$\pi$ = $\begin{pmatrix}
+1/8 & 3/8 & 3/8 & 1/8
+\end{pmatrix}$
+\end{center}
+## Resultados obtenidos
+Los resultados obtenidos después de 10000 y 10001 movimientos empezando en el estado 0:
+
+```{r, echo=FALSE}
+resultados_10000 <- simula_cadenas(1000, 10000, P, init = 0)
+resultados_10001 <- simula_cadenas(1000, 10001, P, init = 0)
+
+#Mostrar tablas
+knitr::kable(data.frame(Estado = 0:3,
+                        "10000 transiciones " = as.integer(resultados_10000),
+                        "10001 transiciones" = as.integer(resultados_10001),
+                        "Error absoluto" = abs(c(as.integer(resultados_10000) + as.integer(resultados_10001))/1000 - c(0.25, 0.75, 0.75, 0.25)),
+                        check.names = FALSE),
+             caption = "Frecuencias de estados finales 1000 simulaciones")
+```
+Podemos visualizar los resultados de mejor manera en gráficas de barras:
+
+```{r, echo=FALSE}
+par(mfrow = c(1, 2), mar = c(4, 4, 3, 2))
+barplot(resultados_10000,
+        main = "10000 pasos",
+        xlab = "Estado Final",
+        ylab = "Frecuencia de 1000",
+        col = "lightyellow",
+        ylim = c(0, 800))
+barplot(resultados_10001,
+        main = "10001 pasos",
+        xlab = "Estado Final",
+        ylab = "Frecuencia de 1000",
+        col = "#FA937E",
+        ylim = c(0, 800))
+```
+
+
+# 3. Discusión (comparación con la teoría vista en clase)
+
+**Puntos clave observados:**
+
+* Las gráficas y tablas muestran claramente una propiedad teórica de la cadena: **periodicidad de periodo 2**. La matriz de transición conecta siempre estados de dos clases alternas A = {0,2} y B = {1,3} y cada transición lleva de A a B o de B a A. Por tanto, si se parte en 0 (conjunto A), después de un número **par** de pasos la cadena debe estar en A (0 ó 2) y después de un número **impar** de pasos la cadena debe estar en B (1 ó 3). Esto explica por qué, en la simulación con 10000 pasos (par), las frecuencias de los estados 1 y 3 son cero, y en la de 10001 pasos (impar) las frecuencias de 0 y 2 son cero.
+
+* La cadena es **irreducible** (todos los estados se comunican entre sí) pero **periódica** (periodo 2). Según la teoría, una cadena irreducible y periódica no converge a una única distribución límite si observamos la cadena en cada paso; en cambio, la distribución de $X_{n}$ oscila según la paridad de n. No obstante, existe una distribución estacionaria $\pi$ que satisface $\pi$P = $\pi$; esa $\pi$ es única por irreducibilidad, pero no es el límite de las distribuciones marginales cuando la cadena es observada paso a paso (debido a la periodicidad). Si interesa obtener comportamiento límite en sentido ergódico, se puede estudiar la cadena observada cada 2 pasos (i.e. $P^{2}$), donde la periodicidad desaparece y la cadena a pasos pares converge.
+
+* De igual manera podemos observar que las matrices límite para potencias pares e impares se alinean tanto los resultados teóricos como los empíricos (simulaciones).
+
+Límite de las potencias pares  $P^{2n}$ es la matriz
+
+\begin{center}
+$\lim_{n\to\infty}P^{2n}=
+\begin{pmatrix}
+\tfrac14 & 0 & \tfrac34 & 0\\
+0 & \tfrac34 & 0 & \tfrac14\\
+\tfrac14 & 0 & \tfrac34 & 0\\
+0 & \tfrac34 & 0 & \tfrac14
+\end{pmatrix}.$
+\end{center}
+
+Límite de las potencias impares $P^{2n+1}$ (o sea la matriz par multiplicada por $P$) es
+
+\begin{center}
+$\lim_{n\to\infty}P^{2n+1}=
+\begin{pmatrix}
+0 & \tfrac34 & 0 & \tfrac14\\
+\tfrac14 & 0 & \tfrac34 & 0\\
+0 & \tfrac34 & 0 & \tfrac14\\
+\tfrac14 & 0 & \tfrac34 & 0
+\end{pmatrix}.$
+\end{center}
+
+Observemos que las filas 1 y 3 son idénticas entre sí; filas 2 y 4 idénticas entre sí, es decir, refleja la alternancia entre las dos clases.
+
+* En términos prácticos, las simulaciones corroboran exactamente la predicción teórica (el error absoluto es de 1.4% algo esperable para una simulación de este estilo): la paridad del número de pasos determina qué clase (A o B) puede ocurrir como estado final.
+
+
+
